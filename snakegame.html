@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(to bottom, #4caf50, #81c784); /* Green gradient background */
+            font-family: 'Montserrat', sans-serif; /* Montserrat font */
+            position: relative;
+        }
+
+        h1 {
+            margin: 0;
+            padding: 10px;
+            color: #fff;
+            text-align: center;
+            font-size: 2.5rem; /* Increased font size for better visibility */
+        }
+
+        #gameContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            padding-bottom: 60px; /* Space for footer */
+        }
+
+        canvas {
+            background-color: #777; /* Grey canvas background */
+            border: 4px solid #fff; /* Thicker border for the canvas */
+            border-radius: 10px;
+        }
+
+        .score {
+            color: #fff;
+            font-size: 1.5rem;
+            margin-top: 40px; /* Increased margin to move score further down */
+        }
+
+        #gameOverScreen {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 400px;
+            background: rgba(0, 0, 0, 0.8); /* Transparent black container */
+            color: #fff;
+            text-align: center;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        #gameOverScreen h2 {
+            margin: 0;
+            font-size: 2rem;
+        }
+
+        #gameOverScreen p {
+            margin: 10px 0;
+        }
+
+        #gameOverScreen button {
+            background-color: #4caf50;
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+
+        #contactButton {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #4caf50;
+            color: #fff;
+            border: none;
+            padding: 14px 28px; /* Slightly larger button */
+            font-size: 1.5rem; /* Increased font size for better visibility */
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        footer {
+            position: absolute;
+            bottom: 0;
+            color: #fff;
+            font-size: 0.9rem;
+            text-align: center;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 0;
+        }
+    </style>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap">
+</head>
+<body>
+    <button id="contactButton" onclick="window.location.href='https://www.facebook.com/profile.php?id=100009890620171'">Contact</button>
+    <div id="gameContainer">
+        <h1>Snake Game</h1>
+        <canvas id="gameCanvas" width="600" height="600"></canvas> <!-- Increased canvas size -->
+        <div class="score" id="score">Score: 0</div>
+        <div id="gameOverScreen">
+            <h2>Game Over</h2>
+            <p>Score: <span id="finalScore">0</span></p>
+            <p>Highest Score: <span id="highestScore">0</span></p>
+            <button id="retryButton">Try Again</button>
+        </div>
+        <footer>Made by Vuong Tuan Huy</footer>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const scale = 20;
+        const rows = canvas.height / scale;
+        const columns = canvas.width / scale;
+
+        let snake = [];
+        let snakeLength = 1;
+        let food = { x: 0, y: 0 };
+        let dx = scale;
+        let dy = 0;
+        let score = 0;
+        let highestScore = 0;
+        let changingDirection = false;
+        let gameInterval;
+        const speed = 150; // Slower snake speed in milliseconds for smooth gameplay
+
+        function initializeGame() {
+            clearInterval(gameInterval);
+            snake = [{ x: scale * 5, y: scale * 5 }];
+            snakeLength = 1;
+            score = 0;
+            dx = scale;
+            dy = 0;
+            generateFood();
+            document.addEventListener('keydown', changeDirection);
+            gameInterval = setInterval(updateGame, speed);
+            document.getElementById('gameOverScreen').style.display = 'none';
+        }
+
+        function updateGame() {
+            if (changingDirection) {
+                const newDirection = getNewDirection();
+                if (newDirection) {
+                    dx = newDirection.dx;
+                    dy = newDirection.dy;
+                }
+                changingDirection = false;
+            }
+
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+            if (head.x === food.x && head.y === food.y) {
+                snakeLength++;
+                score++;
+                if (score > highestScore) highestScore = score;
+                generateFood();
+            } else {
+                snake.pop();
+            }
+
+            snake.unshift(head);
+
+            if (checkCollision()) {
+                showGameOverScreen();
+            }
+
+            drawGame();
+        }
+
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = 'green';
+            snake.forEach(segment => {
+                ctx.fillRect(segment.x, segment.y, scale, scale);
+            });
+
+            ctx.fillStyle = '#8B4513'; // Poop brown color for food
+            ctx.fillRect(food.x, food.y, scale, scale);
+
+            const scoreElement = document.getElementById('score');
+            scoreElement.textContent = 'Score: ' + score;
+        }
+
+        function generateFood() {
+            food.x = Math.floor(Math.random() * columns) * scale;
+            food.y = Math.floor(Math.random() * rows) * scale;
+        }
+
+        function changeDirection(event) {
+            if (changingDirection) return;
+            changingDirection = true;
+
+            switch (event.key) {
+                case 'ArrowUp':
+                    if (dy === 0) {
+                        dx = 0;
+                        dy = -scale;
+                    }
+                    break;
+                case 'ArrowDown':
+                    if (dy === 0) {
+                        dx = 0;
+                        dy = scale;
+                    }
+                    break;
+                case 'ArrowLeft':
+                    if (dx === 0) {
+                        dx = -scale;
+                        dy = 0;
+                    }
+                    break;
+                case 'ArrowRight':
+                    if (dx === 0) {
+                        dx = scale;
+                        dy = 0;
+                    }
+                    break;
+            }
+        }
+
+        function checkCollision() {
+            const head = snake[0];
+            return (
+                head.x < 0 || head.x >= canvas.width ||
+                head.y < 0 || head.y >= canvas.height ||
+                snake.slice(1).some(segment => segment.x === head.x && segment.y === head.y)
+            );
+        }
+
+        function getNewDirection() {
+            if (dx === scale && dy === 0) return null;
+            if (dx === -scale && dy === 0) return { dx: -scale, dy: 0 };
+            if (dx === 0 && dy === scale) return { dx: 0, dy: scale };
+            if (dx === 0 && dy === -scale) return { dx: 0, dy: -scale };
+            return null;
+        }
+
+        function showGameOverScreen() {
+            clearInterval(gameInterval);
+            document.getElementById('gameOverScreen').style.display = 'block';
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('highestScore').textContent = highestScore;
+        }
+
+        document.getElementById('retryButton').addEventListener('click', () => {
+            initializeGame();
+        });
+
+        initializeGame();
+    </script>
+</body>
+</html>
